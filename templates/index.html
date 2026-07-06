@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="mb-4">Your Wine Journal</h1>
+
+<!-- Search bar -->
+<form class="row g-2 mb-4" method="get">
+    <div class="col-8 col-md-9">
+        <input type="text" name="q" class="form-control form-control-lg" placeholder="Search by name or producer..." value="{{ search }}">
+    </div>
+    <div class="col-4 col-md-3 d-grid gap-2 d-md-flex">
+        <button class="btn btn-primary btn-lg" type="submit">🔍 Search</button>
+        {% if search %}
+            <a href="/" class="btn btn-outline-secondary btn-lg">↩ Back to Full List</a>
+        {% endif %}
+    </div>
+</form>
+
+<!-- Upload card with camera button -->
+<div class="card shadow-sm mb-5">
+    <div class="card-body text-center p-4">
+        <h4 class="card-title mb-3">📸 Add a Wine</h4>
+        <p class="text-muted">Take a photo of a wine label or upload from your gallery</p>
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <input type="file" name="photo" id="photoInput" accept="image/*" capture="environment" class="d-none" required>
+            <button type="button" class="btn btn-primary btn-lg" onclick="document.getElementById('photoInput').click();">
+                📷 Take Photo / Upload
+            </button>
+            <button type="submit" class="btn btn-outline-primary btn-lg ms-2" id="submitBtn" style="display: none;">
+                ⚡ Recognize & Save
+            </button>
+            <div class="mt-2">
+                <small id="fileName" class="text-muted"></small>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Entry list -->
+<h2>Journal List</h2>
+{% if entries %}
+<form id="bulkDeleteForm" action="/entry/delete_multiple" method="post" onsubmit="return confirm('Delete selected entries?');">
+    <div class="list-group mb-3">
+        {% for entry in entries %}
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center flex-grow-1">
+                <!-- Checkbox (hidden until bulk mode is activated) -->
+                <input class="form-check-input me-3 entry-checkbox d-none" type="checkbox" name="entry_ids" value="{{ entry.id }}" style="transform: scale(1.2);">
+                <a href="/entry/{{ entry.id }}" class="text-decoration-none text-dark flex-grow-1">
+                    <strong>{{ entry.wine_name or 'Unnamed Wine' }}</strong>
+                    <small class="text-muted d-block">{{ entry.producer }}{% if entry.vintage %} – {{ entry.vintage }}{% endif %}</small>
+                </a>
+            </div>
+            <div class="d-flex align-items-center">
+                <span class="badge bg-primary rounded-pill me-3">{{ entry.date.strftime('%Y-%m-%d') }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Bulk actions bar (hidden by default) -->
+    <div id="bulkActions" class="d-flex justify-content-between align-items-center mb-4 d-none">
+        <div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllBtn">Select All</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllBtn">Deselect All</button>
+            <button type="button" class="btn btn-sm btn-danger" id="cancelBulkBtn">Cancel</button>
+        </div>
+        <button type="submit" class="btn btn-danger">🗑️ Delete Selected</button>
+    </div>
+</form>
+
+<!-- "Delete Entries" button (only visible when entries exist) -->
+<div class="text-end mb-4">
+    <button id="startBulkDeleteBtn" class="btn btn-outline-danger">🗑️ Delete Entries</button>
+</div>
+{% else %}
+<p class="text-muted">No wines yet. Upload your first label!</p>
+{% endif %}
+
+<!-- JavaScript for camera, bulk delete toggle -->
+<script>
+    // Camera file selection
+    const photoInput = document.getElementById('photoInput');
+    const submitBtn = document.getElementById('submitBtn');
+    const fileName = document.getElementById('fileName');
+
+    photoInput.addEventListener('change', function() {
+        if (photoInput.files.length > 0) {
+            fileName.textContent = 'Selected: ' + photoInput.files[0].name;
+            submitBtn.style.display = 'inline-block';
+        } else {
+            fileName.textContent = '';
+            submitBtn.style.display = 'none';
+        }
+    });
+
+    // Bulk delete mode toggle
+    const startBulkBtn = document.getElementById('startBulkDeleteBtn');
+    const bulkActions = document.getElementById('bulkActions');
+    const checkboxes = document.querySelectorAll('.entry-checkbox');
+    const cancelBulkBtn = document.getElementById('cancelBulkBtn');
+
+    if (startBulkBtn) {
+        startBulkBtn.addEventListener('click', function() {
+            checkboxes.forEach(cb => cb.classList.remove('d-none'));
+            bulkActions.classList.remove('d-none');
+            startBulkBtn.classList.add('d-none');
+        });
+    }
+
+    if (cancelBulkBtn) {
+        cancelBulkBtn.addEventListener('click', function() {
+            checkboxes.forEach(cb => {
+                cb.classList.add('d-none');
+                cb.checked = false;
+            });
+            bulkActions.classList.add('d-none');
+            startBulkBtn.classList.remove('d-none');
+        });
+    }
+
+    document.getElementById('selectAllBtn')?.addEventListener('click', function() {
+        checkboxes.forEach(cb => cb.checked = true);
+    });
+    document.getElementById('deselectAllBtn')?.addEventListener('click', function() {
+        checkboxes.forEach(cb => cb.checked = false);
+    });
+</script>
+{% endblock %}

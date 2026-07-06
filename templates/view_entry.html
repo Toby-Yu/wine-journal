@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card mb-4 shadow-sm">
+    <div class="row g-0">
+        <div class="col-md-4 p-3 text-center">
+            <img src="{{ url_for('static', filename=entry.image_path) }}" class="img-fluid rounded" alt="Label">
+        </div>
+        <div class="col-md-8">
+            <div class="card-body">
+                <h2 class="card-title">{{ entry.wine_name or 'Unnamed Wine' }}</h2>
+                <p class="card-text"><strong>Producer:</strong> {{ entry.producer or '–' }}</p>
+                <p class="card-text"><strong>Vintage:</strong> {{ entry.vintage or '–' }}</p>
+                <p class="card-text"><strong>Region:</strong> {{ entry.region or '–' }}</p>
+                <p class="card-text"><strong>Country:</strong> {{ entry.country or '–' }}</p>
+                <p class="card-text"><strong>Grape:</strong> {{ entry.grape_variety or '–' }}</p>
+                <p class="card-text"><strong>Notes:</strong> {{ entry.other_details or '–' }}</p>
+                <p class="card-text">
+                    <small class="text-muted">
+                        Date: {{ entry.date.strftime('%Y-%m-%d') }} | 
+                        Confidence: {{ "%.0f"|format(entry.confidence * 100) }}%
+                    </small>
+                </p>
+                
+                <div class="mt-4 d-flex gap-2">
+                    <a href="/entry/{{ entry.id }}/edit" class="btn btn-primary">✏️ Edit</a>
+                    <a href="/" class="btn btn-outline-secondary">← Back to Journal</a>
+                    <!-- Delete button (with confirmation) -->
+                    <form action="/entry/{{ entry.id }}/delete" method="post" onsubmit="return confirm('Delete this entry?');" class="ms-auto">
+                        <button type="submit" class="btn btn-outline-danger">🗑️ Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

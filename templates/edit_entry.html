@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="mb-3">Edit Entry</h1>
+
+{% if entry.confidence < config['CONFIDENCE_THRESHOLD'] %}
+<div class="alert alert-warning d-flex align-items-center" role="alert">
+    ⚠️ Low confidence ({{ "%.0f"|format(entry.confidence * 100) }}%). Please verify the details below.
+</div>
+{% else %}
+<div class="alert alert-success d-flex align-items-center" role="alert">
+    ✅ High confidence ({{ "%.0f"|format(entry.confidence * 100) }}%).
+</div>
+{% endif %}
+
+<form method="post">
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <img src="{{ url_for('static', filename=entry.image_path) }}" class="img-fluid rounded" alt="Wine label">
+        </div>
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label class="form-label">Wine Name</label>
+                <input type="text" name="wine_name" class="form-control" value="{{ entry.wine_name or '' }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Producer / Winery</label>
+                <input type="text" name="producer" class="form-control" value="{{ entry.producer or '' }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Vintage</label>
+                <input type="text" name="vintage" class="form-control" value="{{ entry.vintage or '' }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Region</label>
+                <input type="text" name="region" class="form-control" value="{{ entry.region or '' }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Country</label>
+                <input type="text" name="country" class="form-control" value="{{ entry.country or '' }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Grape Variety</label>
+                <input type="text" name="grape_variety" class="form-control" value="{{ entry.grape_variety or '' }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Other Details</label>
+                <textarea name="other_details" class="form-control" rows="3">{{ entry.other_details or '' }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">💾 Save Entry</button>
+        </div>
+    </div>
+</form>
+{% endblock %}

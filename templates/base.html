@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍷 Wine Journal</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom orange theme -->
+    <style>
+        :root {
+            --bs-primary: #fd7e14;
+            --bs-primary-rgb: 253, 126, 20;
+        }
+        .btn-primary {
+            --bs-btn-bg: #fd7e14;
+            --bs-btn-border-color: #fd7e14;
+            --bs-btn-hover-bg: #e96b0c;
+            --bs-btn-hover-border-color: #e96b0c;
+            --bs-btn-active-bg: #d9620a;
+            --bs-btn-active-border-color: #d9620a;
+        }
+        .btn-outline-primary {
+            --bs-btn-color: #fd7e14;
+            --bs-btn-border-color: #fd7e14;
+            --bs-btn-hover-bg: #fd7e14;
+            --bs-btn-hover-border-color: #fd7e14;
+            --bs-btn-active-bg: #e96b0c;
+            --bs-btn-active-border-color: #e96b0c;
+        }
+        .badge.bg-primary {
+            background-color: #fd7e14 !important;
+        }
+        .navbar.bg-dark {
+            background-color: #fd7e14 !important;
+        }
+        .navbar-dark .navbar-brand {
+            color: #fff;
+        }
+        .alert-warning {
+            border-left: 4px solid #fd7e14;
+        }
+        .list-group-item-action:hover {
+            background-color: #fff3e6;
+        }
+        .card-header {
+            background-color: #fff3e6;
+        }
+    </style>
+</head>
+<body>
+    <!-- Orange navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4" style="background-color: #fd7e14 !important;">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                🍷 Wine Journal
+            </a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, msg in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Auto-dismiss flash messages after 2 seconds -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert-dismissible');
+            alerts.forEach(function(alert) {
+                setTimeout(function() {
+                    // Use Bootstrap's Alert dismiss method if available, or just hide
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }, 2000);
+            });
+        });
+    </script>
+</body>
+</html>
