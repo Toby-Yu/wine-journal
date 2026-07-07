@@ -2,19 +2,14 @@
 {% block content %}
 <h1 class="mb-4">Your Wine Journal</h1>
 
-<!-- One single form for both quick search and advanced filters -->
+<!-- Search & Filters Form  -->
 <form method="get">
-    <!-- Row: search bar + buttons (always same width) -->
     <div class="d-flex flex-nowrap align-items-center gap-2 mb-3">
-        <!-- Search input – takes remaining space -->
         <input type="text" name="q" class="form-control form-control-lg flex-grow-1"
                placeholder="Search by name or producer" value="{{ search }}">
-
-        <!-- Button group (always same number of items, no layout shift) -->
         <div class="d-flex flex-nowrap gap-2">
             <button class="btn btn-primary btn-lg text-nowrap" type="submit">🔍 Search</button>
             <button type="button" class="btn btn-primary btn-lg text-nowrap" id="toggleFiltersBtn">⚙️ Filters</button>
-            <!-- Back to Full List: always rendered, invisible when not needed -->
             <a href="/" class="btn btn-outline-secondary btn-lg text-nowrap
                {% if not (search or wine_name or producer or vintage or region or country or grape_variety or notes) %}invisible{% endif %}">
                ↩ Back to Full List
@@ -22,7 +17,7 @@
         </div>
     </div>
 
-    <!-- Advanced Filters panel (inside the same form) -->
+    <!-- Advanced Filters panel -->
     <div id="advancedFilters"
          class="card shadow-sm mb-4 {% if not (wine_name or producer or vintage or region or country or grape_variety or notes) %}d-none{% endif %}">
         <div class="card-body">
@@ -52,7 +47,6 @@
                     <label class="form-label">Grape Variety</label>
                     <input type="text" name="grape_variety" class="form-control" value="{{ grape_variety }}">
                 </div>
-                <!-- Notes field – takes full width for longer text -->
                 <div class="col-12">
                     <label class="form-label">Notes</label>
                     <input type="text" name="notes" class="form-control" value="{{ notes }}">
@@ -65,7 +59,7 @@
     </div>
 </form>
 
-<!-- Upload card with camera button -->
+<!-- Upload card -->
 <div class="card shadow-sm mb-5">
     <div class="card-body text-center p-4">
         <h4 class="card-title mb-3">📸 Add a Wine</h4>
@@ -91,17 +85,24 @@
 <form id="bulkDeleteForm" action="/entry/delete_multiple" method="post" onsubmit="return confirm('Delete selected entries?');">
     <div class="list-group mb-3">
         {% for entry in entries %}
-        <div class="list-group-item d-flex justify-content-between align-items-center">
+        <div class="list-group-item d-flex justify-content-between align-items-center position-relative journal-entry-hover">
             <div class="d-flex align-items-center flex-grow-1">
                 <input class="form-check-input me-3 entry-checkbox d-none" type="checkbox" name="entry_ids" value="{{ entry.id }}" style="transform: scale(1.2);">
-                <a href="/entry/{{ entry.id }}" class="text-decoration-none text-dark flex-grow-1">
+                <a href="/entry/{{ entry.id }}" class="text-decoration-none text-dark flex-grow-1 stretched-link-hover-area">
                     <strong>{{ entry.wine_name or 'Unnamed Wine' }}</strong>
                     <small class="text-muted d-block">{{ entry.producer }}{% if entry.vintage %} – {{ entry.vintage }}{% endif %}</small>
+                    {% if entry.tasting_notes %}
+                    <small class="text-muted d-block tasting-preview-hover d-none d-md-block">
+                        {{ entry.tasting_notes[:120] }}{% if entry.tasting_notes|length > 120 %}...{% endif %}
+                    </small>
+                    {% endif %}
                 </a>
             </div>
             <div class="d-flex align-items-center">
                 <span class="badge bg-primary rounded-pill me-3">{{ entry.date.strftime('%Y-%m-%d') }}</span>
             </div>
+            <!-- Stretched link overlay for whole row click -->
+            <a href="/entry/{{ entry.id }}" class="stretched-link"></a>
         </div>
         {% endfor %}
     </div>
@@ -124,9 +125,35 @@
 <p class="text-muted">No wines yet. Upload your first label!</p>
 {% endif %}
 
+<!-- Hover effect – orange background -->
+<style>
+    .journal-entry-hover {
+        transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .journal-entry-hover:hover {
+        background-color: #fff3e6;   /* light orange, matches app theme */
+        box-shadow: 0 0.125rem 0.25rem rgba(253,126,20,0.2);  /* subtle orange shadow */
+    }
+    .stretched-link-hover-area {
+        position: relative;
+        z-index: 2;
+    }
+    .tasting-preview-hover {
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: opacity 0.3s ease, max-height 0.3s ease;
+        color: #6c757d;
+        font-style: italic;
+    }
+    .journal-entry-hover:hover .tasting-preview-hover {
+        opacity: 1;
+        max-height: 50px;
+    }
+</style>
+
 <!-- JavaScript -->
 <script>
-    // Camera file selection
     const photoInput = document.getElementById('photoInput');
     const submitBtn = document.getElementById('submitBtn');
     const fileName = document.getElementById('fileName');
@@ -141,7 +168,6 @@
         }
     });
 
-    // Bulk delete toggle
     const startBulkBtn = document.getElementById('startBulkDeleteBtn');
     const bulkActions = document.getElementById('bulkActions');
     const checkboxes = document.querySelectorAll('.entry-checkbox');
@@ -173,7 +199,6 @@
         checkboxes.forEach(cb => cb.checked = false);
     });
 
-    // Toggle Advanced Filters visibility
     const toggleBtn = document.getElementById('toggleFiltersBtn');
     const filtersDiv = document.getElementById('advancedFilters');
     if (toggleBtn) {
