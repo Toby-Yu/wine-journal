@@ -2,13 +2,14 @@ import os
 import uuid
 from datetime import date
 from dotenv import load_dotenv
-load_dotenv()  # Load API key from .env file
+load_dotenv()
 
 from flask import Flask, render_template, request, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 from config import Config
 from database import db, JournalEntry
 from ai_analyzer import analyze_wine_label
+from sqlalchemy import or_
 
 def create_app():
     app = Flask(__name__)
@@ -26,15 +27,53 @@ def allowed_file(filename):
 @app.route('/')
 def index():
     search = request.args.get('q', '')
+    wine_name = request.args.get('wine_name', '').strip()
+    producer = request.args.get('producer', '').strip()
+    vintage = request.args.get('vintage', '').strip()
+    region = request.args.get('region', '').strip()
+    country = request.args.get('country', '').strip()
+    grape_variety = request.args.get('grape_variety', '').strip()
+    notes = request.args.get('notes', '').strip()
+
     query = JournalEntry.query
+
+    # Main keyword search
     if search:
-        query = query.filter(
-            JournalEntry.wine_name.ilike(f'%{search}%') |
+        # Case-insensitive partial match on name or producer
+        name_or_producer = or_(
+            JournalEntry.wine_name.ilike(f'%{search}%'),
             JournalEntry.producer.ilike(f'%{search}%')
         )
-    # Order by ID descending to always show newest first
+        # Also match unnamed wines if search contains "unnamed"
+        if "unnamed" in search.lower():
+            name_or_producer = or_(
+                name_or_producer,
+                JournalEntry.wine_name == None,
+                JournalEntry.wine_name == ''
+            )
+        query = query.filter(name_or_producer)
+
+    # Advanced filters (AND logic)
+    if wine_name:
+        query = query.filter(JournalEntry.wine_name.ilike(f'%{wine_name}%'))
+    if producer:
+        query = query.filter(JournalEntry.producer.ilike(f'%{producer}%'))
+    if vintage:
+        query = query.filter(JournalEntry.vintage.ilike(f'%{vintage}%'))
+    if region:
+        query = query.filter(JournalEntry.region.ilike(f'%{region}%'))
+    if country:
+        query = query.filter(JournalEntry.country.ilike(f'%{country}%'))
+    if grape_variety:
+        query = query.filter(JournalEntry.grape_variety.ilike(f'%{grape_variety}%'))
+    if notes:
+        query = query.filter(JournalEntry.other_details.ilike(f'%{notes}%'))
+
     entries = query.order_by(JournalEntry.id.desc()).all()
-    return render_template('index.html', entries=entries, search=search)
+    return render_template('index.html', entries=entries, search=search,
+                           wine_name=wine_name, producer=producer,
+                           vintage=vintage, region=region, country=country,
+                           grape_variety=grape_variety, notes=notes)
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -48,26 +87,20 @@ def upload():
         return redirect(url_for('index'))
         
     if file and allowed_file(file.filename):
-        # Save image securely
         ext = file.filename.rsplit('.', 1)[1].lower()
         filename = f"{uuid.uuid4().hex}.{ext}"
         
-        # Ensure upload folder exists
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         
-        # Path for saving on the server
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
 
-        # Path for database, making it easy to fetch via url_for('static', filename=...)
         db_path = f"uploads/{filename}"
 
-        # Create empty entry with today's date
         entry = JournalEntry(date=date.today(), image_path=db_path)
         db.session.add(entry)
         db.session.commit()
 
-        # AI analysis
         try:
             result = analyze_wine_label(filepath)
             entry.wine_name = result.get('wine_name', '')
@@ -123,7 +156,6 @@ def delete_multiple_entries():
     if not entry_ids:
         flash('No entries selected.', 'warning')
         return redirect(url_for('index'))
-    # Convert to int and delete
     ids_to_delete = [int(eid) for eid in entry_ids]
     JournalEntry.query.filter(JournalEntry.id.in_(ids_to_delete)).delete(synchronize_session='fetch')
     db.session.commit()

@@ -2,16 +2,66 @@
 {% block content %}
 <h1 class="mb-4">Your Wine Journal</h1>
 
-<!-- Search bar -->
-<form class="row g-2 mb-4" method="get">
-    <div class="col-8 col-md-9">
-        <input type="text" name="q" class="form-control form-control-lg" placeholder="Search by name or producer..." value="{{ search }}">
+<!-- One single form for both quick search and advanced filters -->
+<form method="get">
+    <!-- Row: search bar + buttons (always same width) -->
+    <div class="d-flex flex-nowrap align-items-center gap-2 mb-3">
+        <!-- Search input – takes remaining space -->
+        <input type="text" name="q" class="form-control form-control-lg flex-grow-1"
+               placeholder="Search by name or producer" value="{{ search }}">
+
+        <!-- Button group (always same number of items, no layout shift) -->
+        <div class="d-flex flex-nowrap gap-2">
+            <button class="btn btn-primary btn-lg text-nowrap" type="submit">🔍 Search</button>
+            <button type="button" class="btn btn-primary btn-lg text-nowrap" id="toggleFiltersBtn">⚙️ Filters</button>
+            <!-- Back to Full List: always rendered, invisible when not needed -->
+            <a href="/" class="btn btn-outline-secondary btn-lg text-nowrap
+               {% if not (search or wine_name or producer or vintage or region or country or grape_variety or notes) %}invisible{% endif %}">
+               ↩ Back to Full List
+            </a>
+        </div>
     </div>
-    <div class="col-4 col-md-3 d-grid gap-2 d-md-flex">
-        <button class="btn btn-primary btn-lg" type="submit">🔍 Search</button>
-        {% if search %}
-            <a href="/" class="btn btn-outline-secondary btn-lg">↩ Back to Full List</a>
-        {% endif %}
+
+    <!-- Advanced Filters panel (inside the same form) -->
+    <div id="advancedFilters"
+         class="card shadow-sm mb-4 {% if not (wine_name or producer or vintage or region or country or grape_variety or notes) %}d-none{% endif %}">
+        <div class="card-body">
+            <h5 class="card-title">Advanced Filters</h5>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label">Wine Name</label>
+                    <input type="text" name="wine_name" class="form-control" value="{{ wine_name }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Producer</label>
+                    <input type="text" name="producer" class="form-control" value="{{ producer }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Vintage</label>
+                    <input type="text" name="vintage" class="form-control" value="{{ vintage }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Region</label>
+                    <input type="text" name="region" class="form-control" value="{{ region }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Country</label>
+                    <input type="text" name="country" class="form-control" value="{{ country }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Grape Variety</label>
+                    <input type="text" name="grape_variety" class="form-control" value="{{ grape_variety }}">
+                </div>
+                <!-- Notes field – takes full width for longer text -->
+                <div class="col-12">
+                    <label class="form-label">Notes</label>
+                    <input type="text" name="notes" class="form-control" value="{{ notes }}">
+                </div>
+            </div>
+            <div class="mt-3 text-end">
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+            </div>
+        </div>
     </div>
 </form>
 
@@ -35,7 +85,7 @@
     </div>
 </div>
 
-<!-- Entry list -->
+<!-- Journal list -->
 <h2>Journal List</h2>
 {% if entries %}
 <form id="bulkDeleteForm" action="/entry/delete_multiple" method="post" onsubmit="return confirm('Delete selected entries?');">
@@ -43,7 +93,6 @@
         {% for entry in entries %}
         <div class="list-group-item d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center flex-grow-1">
-                <!-- Checkbox (hidden until bulk mode is activated) -->
                 <input class="form-check-input me-3 entry-checkbox d-none" type="checkbox" name="entry_ids" value="{{ entry.id }}" style="transform: scale(1.2);">
                 <a href="/entry/{{ entry.id }}" class="text-decoration-none text-dark flex-grow-1">
                     <strong>{{ entry.wine_name or 'Unnamed Wine' }}</strong>
@@ -57,7 +106,7 @@
         {% endfor %}
     </div>
 
-    <!-- Bulk actions bar (hidden by default) -->
+    <!-- Bulk actions bar -->
     <div id="bulkActions" class="d-flex justify-content-between align-items-center mb-4 d-none">
         <div>
             <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllBtn">Select All</button>
@@ -68,7 +117,6 @@
     </div>
 </form>
 
-<!-- "Delete Entries" button (only visible when entries exist) -->
 <div class="text-end mb-4">
     <button id="startBulkDeleteBtn" class="btn btn-outline-danger">🗑️ Delete Entries</button>
 </div>
@@ -76,7 +124,7 @@
 <p class="text-muted">No wines yet. Upload your first label!</p>
 {% endif %}
 
-<!-- JavaScript for camera, bulk delete toggle -->
+<!-- JavaScript -->
 <script>
     // Camera file selection
     const photoInput = document.getElementById('photoInput');
@@ -93,7 +141,7 @@
         }
     });
 
-    // Bulk delete mode toggle
+    // Bulk delete toggle
     const startBulkBtn = document.getElementById('startBulkDeleteBtn');
     const bulkActions = document.getElementById('bulkActions');
     const checkboxes = document.querySelectorAll('.entry-checkbox');
@@ -124,5 +172,14 @@
     document.getElementById('deselectAllBtn')?.addEventListener('click', function() {
         checkboxes.forEach(cb => cb.checked = false);
     });
+
+    // Toggle Advanced Filters visibility
+    const toggleBtn = document.getElementById('toggleFiltersBtn');
+    const filtersDiv = document.getElementById('advancedFilters');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            filtersDiv.classList.toggle('d-none');
+        });
+    }
 </script>
 {% endblock %}
