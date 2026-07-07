@@ -102,6 +102,7 @@ _Previously, the prototype used Tesseract OCR + a local Llama 3.2 3B text model 
 **What I Would Improve with More Time**
 
 - **Offline fallback** - reintegrate a lightweight local vision model (e.g., LLaVA‑Phi3) as a backup when the API is unavailable.
+- **better UX** - allowing user to move around the filter wine journal or the full list or adding compare function with two wine journal.
 - **Integrate search API with GLM4.6V** - enhance tasting note quality by fetching real wine reviews from the web.
 - **Better error handling** - detect if very unclear label or image is uploaded, prompt the user to retake the photo.
 - **Wine database matching** - cross‑reference recognised fields with a public wine database (e.g., [Wine.com](https://wine.com/), Vivino) to boost accuracy.

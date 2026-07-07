@@ -2,6 +2,7 @@
 {% block content %}
 <h1 class="mb-4">Your Wine Journal</h1>
 
+<!-- Search & Filters Form -->
 <form method="get">
     <div class="d-flex flex-nowrap align-items-center gap-2 mb-3">
         <input type="text" name="q" class="form-control form-control-lg flex-grow-1"
@@ -53,12 +54,10 @@
                     <label class="form-label">Other Details</label>
                     <input type="text" name="other_details" class="form-control" value="{{ other_details }}">
                 </div>
-                <!-- NEW: Personal Remark filter -->
                 <div class="col-md-4">
                     <label class="form-label">Personal Remark</label>
                     <input type="text" name="personal_remark" class="form-control" value="{{ personal_remark }}">
                 </div>
-                <!-- END NEW -->
             </div>
             <div class="mt-3 text-end">
                 <button type="submit" class="btn btn-primary">Apply Filters</button>
@@ -72,7 +71,7 @@
     <div class="card-body text-center p-4">
         <h4 class="card-title mb-3">📸 Add a Wine</h4>
         <p class="text-muted">Take a photo of a wine label or upload from your gallery</p>
-        <form action="/upload" method="post" enctype="multipart/form-data">
+        <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
             <input type="file" name="photo" id="photoInput" accept="image/*" capture="environment" class="d-none" required>
             <button type="button" class="btn btn-primary btn-lg" onclick="document.getElementById('photoInput').click();">
                 📷 Take Photo / Upload
@@ -87,16 +86,34 @@
     </div>
 </div>
 
+<!-- Loading Overlay -->
+<div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.75); z-index: 9999; backdrop-filter: blur(4px);">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+        <div style="background: rgba(255,255,255,0.15); backdrop-filter: blur(8px); border-radius: 16px; padding: 2.5rem 3rem; text-align: center; color: white; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
+            <div class="spinner-border text-light" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h4 class="mt-3 fw-bold">🔍 Recognizing your wine...</h4>
+            <p class="mb-0 text-white-50">Please wait while we analyse the label</p>
+        </div>
+    </div>
+</div>
+
 <!-- Journal list -->
 <h2>Journal List</h2>
 {% if entries %}
 <form id="bulkDeleteForm" action="/entry/delete_multiple" method="post" onsubmit="return confirm('Delete selected entries?');">
-    <div class="list-group mb-3">
+    <div class="list-group mb-3" id="journalListContainer">
         {% for entry in entries %}
-        <div class="list-group-item d-flex justify-content-between align-items-center position-relative journal-entry-hover">
+        <div class="list-group-item d-flex justify-content-between align-items-center position-relative journal-entry-hover"
+             data-entry-id="{{ entry.id }}">
             <div class="d-flex align-items-center flex-grow-1">
-                <input class="form-check-input me-3 entry-checkbox d-none" type="checkbox" name="entry_ids" value="{{ entry.id }}" style="transform: scale(1.2);">
-                <a href="/entry/{{ entry.id }}" class="text-decoration-none text-dark flex-grow-1 stretched-link-hover-area">
+                <!-- Checkbox – hidden by default, shown in bulk mode -->
+                <input class="form-check-input me-3 entry-checkbox d-none" type="checkbox" name="entry_ids" value="{{ entry.id }}"
+                       style="transform: scale(1.2); z-index: 3;"
+                       data-entry-id="{{ entry.id }}">
+                <a href="/entry/{{ entry.id }}" class="text-decoration-none text-dark flex-grow-1 journal-link"
+                   style="position: relative; z-index: 2;">
                     <strong>{{ entry.wine_name or 'Unnamed Wine' }}</strong>
                     <small class="text-muted d-block">{{ entry.producer }}{% if entry.vintage %} – {{ entry.vintage }}{% endif %}</small>
                     {% if entry.tasting_notes %}
@@ -109,11 +126,13 @@
             <div class="d-flex align-items-center">
                 <span class="badge bg-primary rounded-pill me-3">{{ entry.date.strftime('%Y-%m-%d') }}</span>
             </div>
-            <a href="/entry/{{ entry.id }}" class="stretched-link"></a>
+            <!-- Stretched link for whole‑row navigation (disabled in bulk mode) -->
+            <a href="/entry/{{ entry.id }}" class="stretched-link journal-stretched-link" style="z-index: 1;"></a>
         </div>
         {% endfor %}
     </div>
 
+    <!-- Bulk actions bar -->
     <div id="bulkActions" class="d-flex justify-content-between align-items-center mb-4 d-none">
         <div>
             <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllBtn">Select All</button>
@@ -131,6 +150,7 @@
 <p class="text-muted">No wines yet. Upload your first label!</p>
 {% endif %}
 
+<!-- Hover effects -->
 <style>
     .journal-entry-hover {
         transition: background-color 0.2s ease, box-shadow 0.2s ease;
@@ -138,10 +158,6 @@
     .journal-entry-hover:hover {
         background-color: #fff3e6;
         box-shadow: 0 0.125rem 0.25rem rgba(253,126,20,0.2);
-    }
-    .stretched-link-hover-area {
-        position: relative;
-        z-index: 2;
     }
     .tasting-preview-hover {
         opacity: 0;
@@ -155,14 +171,147 @@
         opacity: 1;
         max-height: 50px;
     }
+    .journal-stretched-link.disabled-link {
+        pointer-events: none;
+    }
 </style>
 
 <script>
+    // Helper functions for localStorage persistence
+    function getStoredBulkMode() {
+        return localStorage.getItem('bulkMode') === 'true';
+    }
+    function setStoredBulkMode(value) {
+        localStorage.setItem('bulkMode', value);
+    }
+    function getStoredSelectedIds() {
+        const raw = localStorage.getItem('selectedEntries');
+        return raw ? JSON.parse(raw) : [];
+    }
+    function setStoredSelectedIds(ids) {
+        localStorage.setItem('selectedEntries', JSON.stringify(ids));
+    }
+
+    // Apply bulk mode UI based on stored state
+    function applyStoredBulkState() {
+        const bulkMode = getStoredBulkMode();
+        const selectedIds = getStoredSelectedIds();
+        const container = document.getElementById('journalListContainer');
+        if (!container) return;
+
+        const checkboxes = container.querySelectorAll('.entry-checkbox');
+        const stretchedLinks = container.querySelectorAll('.journal-stretched-link');
+        const bulkActions = document.getElementById('bulkActions');
+        const startBulkBtn = document.getElementById('startBulkDeleteBtn');
+
+        if (bulkMode) {
+            // Show checkboxes
+            checkboxes.forEach(cb => {
+                cb.classList.remove('d-none');
+                cb.checked = selectedIds.includes(cb.getAttribute('data-entry-id'));
+            });
+            // Disable stretched links
+            stretchedLinks.forEach(link => link.classList.add('disabled-link'));
+            // Show bulk actions bar, hide start button
+            bulkActions.classList.remove('d-none');
+            startBulkBtn.classList.add('d-none');
+        } else {
+            // Hide checkboxes, uncheck them
+            checkboxes.forEach(cb => {
+                cb.classList.add('d-none');
+                cb.checked = false;
+            });
+            // Enable stretched links
+            stretchedLinks.forEach(link => link.classList.remove('disabled-link'));
+            // Hide bulk actions bar, show start button
+            bulkActions.classList.add('d-none');
+            startBulkBtn.classList.remove('d-none');
+            // Clear selections
+            localStorage.removeItem('selectedEntries');
+        }
+    }
+
+    // Update localStorage when a checkbox is toggled
+    function handleCheckboxChange(e) {
+        const cb = e.target;
+        const entryId = cb.getAttribute('data-entry-id');
+        let selectedIds = getStoredSelectedIds();
+        if (cb.checked) {
+            if (!selectedIds.includes(entryId)) selectedIds.push(entryId);
+        } else {
+            selectedIds = selectedIds.filter(id => id !== entryId);
+        }
+        setStoredSelectedIds(selectedIds);
+    }
+
+    // Select/Deselect all
+    function selectAll() {
+        const container = document.getElementById('journalListContainer');
+        if (!container) return;
+        const checkboxes = container.querySelectorAll('.entry-checkbox');
+        const ids = [];
+        checkboxes.forEach(cb => {
+            cb.checked = true;
+            ids.push(cb.getAttribute('data-entry-id'));
+        });
+        setStoredSelectedIds(ids);
+    }
+    function deselectAll() {
+        const container = document.getElementById('journalListContainer');
+        if (!container) return;
+        const checkboxes = container.querySelectorAll('.entry-checkbox');
+        checkboxes.forEach(cb => { cb.checked = false; });
+        setStoredSelectedIds([]);
+    }
+
+    // --- Page initialization ---
+    document.addEventListener('DOMContentLoaded', function() {
+        applyStoredBulkState();
+
+        // Attach change listeners to all checkboxes
+        const container = document.getElementById('journalListContainer');
+        if (container) {
+            container.addEventListener('change', function(e) {
+                if (e.target.classList.contains('entry-checkbox')) {
+                    handleCheckboxChange(e);
+                }
+            });
+        }
+
+        // Start bulk delete
+        document.getElementById('startBulkDeleteBtn')?.addEventListener('click', function() {
+            setStoredBulkMode(true);
+            setStoredSelectedIds([]);
+            applyStoredBulkState();
+        });
+
+        // Cancel bulk delete
+        document.getElementById('cancelBulkBtn')?.addEventListener('click', function() {
+            setStoredBulkMode(false);
+            localStorage.removeItem('selectedEntries');
+            applyStoredBulkState();
+        });
+
+        // Select / Deselect all buttons
+        document.getElementById('selectAllBtn')?.addEventListener('click', selectAll);
+        document.getElementById('deselectAllBtn')?.addEventListener('click', deselectAll);
+
+        // When the bulk delete form is submitted, clear storage (entries will be deleted)
+        document.getElementById('bulkDeleteForm')?.addEventListener('submit', function() {
+            // Clear bulk mode after deletion – page will reload anyway
+            localStorage.removeItem('bulkMode');
+            localStorage.removeItem('selectedEntries');
+        });
+    });
+
+    // --- Upload / Loading overlay logic (unchanged) ---
     const photoInput = document.getElementById('photoInput');
     const submitBtn = document.getElementById('submitBtn');
     const fileName = document.getElementById('fileName');
+    const uploadForm = document.getElementById('uploadForm');
+    const loadingOverlay = document.getElementById('loadingOverlay');
 
-    photoInput.addEventListener('change', function() {
+    photoInput?.addEventListener('change', function() {
         if (photoInput.files.length > 0) {
             fileName.textContent = 'Selected: ' + photoInput.files[0].name;
             submitBtn.style.display = 'inline-block';
@@ -172,37 +321,13 @@
         }
     });
 
-    const startBulkBtn = document.getElementById('startBulkDeleteBtn');
-    const bulkActions = document.getElementById('bulkActions');
-    const checkboxes = document.querySelectorAll('.entry-checkbox');
-    const cancelBulkBtn = document.getElementById('cancelBulkBtn');
-
-    if (startBulkBtn) {
-        startBulkBtn.addEventListener('click', function() {
-            checkboxes.forEach(cb => cb.classList.remove('d-none'));
-            bulkActions.classList.remove('d-none');
-            startBulkBtn.classList.add('d-none');
-        });
-    }
-
-    if (cancelBulkBtn) {
-        cancelBulkBtn.addEventListener('click', function() {
-            checkboxes.forEach(cb => {
-                cb.classList.add('d-none');
-                cb.checked = false;
-            });
-            bulkActions.classList.add('d-none');
-            startBulkBtn.classList.remove('d-none');
-        });
-    }
-
-    document.getElementById('selectAllBtn')?.addEventListener('click', function() {
-        checkboxes.forEach(cb => cb.checked = true);
-    });
-    document.getElementById('deselectAllBtn')?.addEventListener('click', function() {
-        checkboxes.forEach(cb => cb.checked = false);
+    uploadForm?.addEventListener('submit', function(e) {
+        loadingOverlay.style.display = 'block';
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⏳ Processing...';
     });
 
+    // Toggle filters
     const toggleBtn = document.getElementById('toggleFiltersBtn');
     const filtersDiv = document.getElementById('advancedFilters');
     if (toggleBtn) {
