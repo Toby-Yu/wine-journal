@@ -34,10 +34,9 @@ pip install -r requirements.txt
 
 ### 4. Configure environment variables**
 
-Create a .env file in the project root and add:
+Create a `.env` file in the project root and add:
 
-```bash
-text
+```text
 OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 ### 5. (Optional) If upgrading from an older version that lacked tasting notes**
@@ -45,7 +44,8 @@ OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 If you already have an existing instance/journal.db database, run the migration script to add the tasting_notes column:
 
 ```bash
-python add_column.py
+python add_column.py                  # adds tasting_notes (if missing)
+python add_personal_remark_column.py  # adds personal_remark (if missing)
 ```
 
 _For fresh installations this step is not needed - the database is created automatically with all required columns._
@@ -79,13 +79,15 @@ _Previously, the prototype used Tesseract OCR + a local Llama 3.2 3B text model 
   - Confidence score
 - **Confidence & Fallback** - The model self‑rates its confidence (0-1). Low‑confidence entries show a warning on the edit page, and the user can manually correct any field.
 - **Journal Entry Creation** - A new dated entry is saved to the SQLite database, and the user is redirected to an edit form to review or adjust the results.
-- **User Correction** - All fields (including tasting notes) are editable. The user's changes are saved permanently.
+- **User Correction** - All fields (including tasting notes) are editable.The user can also add a personal remark to capture their own thoughts or memories about the wine and their changes are saved permanently.
 
 **What Works Well**
 
 - **End‑to‑end flow** - from photo to saved journal entry in a clear workflow.
 - **Confidence transparency** - high‑confidence results are clearly indicated; low‑confidence results are flagged for review.
 - **AI‑generated tasting notes** - the model suggests a professional tasting note based on the recognised wine, clearly labelled as "AI‑generated".
+- **Personal remarks** - a separate text field lets users write their own notes, memories, or ratings.
+- **Advanced filtering** – the journal list can be filtered by wine name, producer, vintage, region, country, grape variety, tasting notes, other details, and personal remark.
 - **Clean user interface** - orange‑themed, mobile‑responsive design with hover effects on the journal list, search, advanced filters, and bulk delete.
 - **Graceful fallback** - if the API call fails, the entry is still created with raw error details, and the user can fill the fields manually.
 
@@ -100,7 +102,7 @@ _Previously, the prototype used Tesseract OCR + a local Llama 3.2 3B text model 
 **What I Would Improve with More Time**
 
 - **Offline fallback** - reintegrate a lightweight local vision model (e.g., LLaVA‑Phi3) as a backup when the API is unavailable.
-- **integrate search API with GLM4.6V** - search related wine review to improve the quality of the AI generated tasting note.
+- **Integrate search API with GLM4.6V** - enhance tasting note quality by fetching real wine reviews from the web.
 - **Better error handling** - detect if very unclear label or image is uploaded, prompt the user to retake the photo.
 - **Wine database matching** - cross‑reference recognised fields with a public wine database (e.g., [Wine.com](https://wine.com/), Vivino) to boost accuracy.
 - **User accounts & sync** - multi‑device support and cloud backup of the journal.
