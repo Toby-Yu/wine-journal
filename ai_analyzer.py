@@ -4,8 +4,14 @@ from PIL import Image
 import pytesseract
 import ollama
 
-# Set Tesseract path (adjust if needed)
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# ----- Tesseract path (configurable via environment variable) -----
+# If TESSERACT_CMD is set, use it; otherwise rely on system PATH.
+tesseract_cmd = os.getenv('TESSERACT_CMD')
+if tesseract_cmd:
+    pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+
+# Original model (slower but reliable)
+FAST_MODEL = "llama3.2:3b"
 
 def analyze_wine_label(image_path):
     """
@@ -42,7 +48,7 @@ def analyze_wine_label(image_path):
             "raw_response": ""
         }
 
-    # ----- AI Structuring via Ollama -----
+    # ----- AI Structuring via Ollama (original model) -----
     prompt = (
         "You are a wine data parser. Given raw OCR text from a wine label, output ONLY a valid JSON object – no code, no explanation.\n"
         f"Raw text:\n{extracted_text}\n\n"
@@ -66,13 +72,12 @@ def analyze_wine_label(image_path):
 
     try:
         response = ollama.chat(
-            model="llama3.2:3b",
+            model=FAST_MODEL,          # original model
             messages=[{"role": "user", "content": prompt}],
             options={"temperature": 0.0}
         )
         raw = response["message"]["content"].strip()
     except Exception as e:
-        # Ollama not running or model missing – fallback to OCR text
         return {
             "wine_name": "",
             "producer": "",
@@ -85,7 +90,7 @@ def analyze_wine_label(image_path):
             "raw_response": extracted_text
         }
 
-    # Robust JSON extraction (same as before)
+    # Robust JSON extraction
     start = raw.find('{')
     end = raw.rfind('}')
     if start != -1 and end != -1:
@@ -96,7 +101,6 @@ def analyze_wine_label(image_path):
     try:
         parsed = json.loads(json_str)
     except json.JSONDecodeError:
-        # If model didn’t return valid JSON, return raw text
         return {
             "wine_name": "",
             "producer": "",
