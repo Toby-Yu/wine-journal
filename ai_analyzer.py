@@ -1,114 +1,118 @@
 import os
 import json
-from PIL import Image
-import pytesseract
-import ollama
+import base64
+from openai import OpenAI
+from dotenv import load_dotenv
 
-# ----- Tesseract path (configurable via environment variable) -----
-# If TESSERACT_CMD is set, use it; otherwise rely on system PATH.
-tesseract_cmd = os.getenv('TESSERACT_CMD')
-if tesseract_cmd:
-    pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+load_dotenv()
 
-# Original model (slower but reliable)
-FAST_MODEL = "llama3.2:3b"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+if not OPENROUTER_API_KEY:
+    raise RuntimeError("OPENROUTER_API_KEY not set in .env")
 
-def analyze_wine_label(image_path):
-    """
-    Extract wine info from label photo using OCR + local Ollama model.
-    Returns a dict with structured fields.
-    """
-    # ----- OCR -----
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+MODEL = "z-ai/glm-4.6v"   # GLM‑4.6V vision model
+
+client = OpenAI(
+    api_key=OPENROUTER_API_KEY,
+    base_url=OPENROUTER_BASE_URL,
+    default_headers={
+        "HTTP-Referer": "http://localhost:5000",
+        "X-Title": "WineJournalDemo"
+    }
+)
+
+def encode_image(image_path: str) -> str:
+    with open(image_path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
+
+def analyze_wine_label(image_path: str) -> dict:
+    """Send a wine label photo to GLM‑4.6V. Returns structured fields + tasting notes + confidence."""
     try:
-        img = Image.open(image_path)
-        extracted_text = pytesseract.image_to_string(img).strip()
+        b64_img = encode_image(image_path)
     except Exception as e:
         return {
-            "wine_name": "",
-            "producer": "",
-            "vintage": "",
-            "region": "",
-            "country": "",
-            "grape_variety": "",
-            "other_details": f"OCR failed: {e}",
-            "confidence": 0.0,
-            "raw_response": ""
+            "wine_name": "", "producer": "", "vintage": "", "region": "",
+            "country": "", "grape_variety": "", "tasting_notes": "",
+            "other_details": f"Image encoding failed: {e}",
+            "confidence": 0.0, "raw_response": ""
         }
 
-    if not extracted_text:
-        return {
-            "wine_name": "",
-            "producer": "",
-            "vintage": "",
-            "region": "",
-            "country": "",
-            "grape_variety": "",
-            "other_details": "No text found in image.",
-            "confidence": 0.0,
-            "raw_response": ""
-        }
+    system_prompt = (
+        "You are a master sommelier AI that analyses wine label photos. "
+        "First, extract all visible text from the label (wine name, producer, vintage, region, etc.). "
+        "Then, use your deep knowledge of world wines to fill in any missing fields and to generate an accurate tasting note. "
+        "For the tasting note, infer the typical flavour profile (colour, aromas, body, tannins, finish) based on the wine, its region, and grape variety. "
+        "If the label is blurry, angled, or partially cropped, infer the most likely wine from recognisable fragments. "
+        "Always output a valid JSON object – no code, no explanation."
+    )
 
-    # ----- AI Structuring via Ollama (original model) -----
-    prompt = (
-        "You are a wine data parser. Given raw OCR text from a wine label, output ONLY a valid JSON object – no code, no explanation.\n"
-        f"Raw text:\n{extracted_text}\n\n"
-        "Fill these fields as best you can:\n"
+    user_prompt = (
+        "Analyse the wine label in this photo and return a JSON object with exactly these fields:\n"
         "{\n"
-        '  "wine_name": "...",\n'
-        '  "producer": "...",\n'
-        '  "vintage": "...",\n'
-        '  "region": "...",\n'
-        '  "country": "...",\n'
-        '  "grape_variety": "...",\n'
-        '  "other_details": "...",\n'
+        '  "wine_name": "string",\n'
+        '  "producer": "string",\n'
+        '  "vintage": "string",\n'
+        '  "region": "string",\n'
+        '  "country": "string",\n'
+        '  "grape_variety": "string",\n'
+        '  "tasting_notes": "string (a brief, professional tasting note: colour, aromas, palate, finish)",\n'
+        '  "other_details": "string (any extra useful info)",\n'
         '  "confidence": 0.0\n'
-        "}\n"
-        "Important for confidence:\n"
-        "- If the raw text contains clear, complete wine label info, set confidence between 0.7 and 0.9.\n"
-        "- If the text is garbled, only partial, or looks like random noise, set confidence between 0.2 and 0.4.\n"
-        "- Never use 0.0 unless absolutely no useful info is extractable.\n"
-        "Return just the JSON, no other text."
+        "}\n\n"
+        "Confidence rules:\n"
+        "- Clear label: 0.85 – 0.95\n"
+        "- Blurry/partial but identifiable: 0.6 – 0.8\n"
+        "- Guessing from fragments: 0.3 – 0.5\n"
+        "- No label: 0.0\n\n"
+        "Important: The tasting note should be specific to the wine you identified. "
+        "Use your knowledge of typical profiles for that grape/region/vintage. "
+        "Now, output only the JSON."
     )
 
     try:
-        response = ollama.chat(
-            model=FAST_MODEL,          # original model
-            messages=[{"role": "user", "content": prompt}],
-            options={"temperature": 0.0}
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": user_prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{b64_img}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            temperature=0.0,
+            max_tokens=1024
         )
-        raw = response["message"]["content"].strip()
+        raw = response.choices[0].message.content.strip()
     except Exception as e:
         return {
-            "wine_name": "",
-            "producer": "",
-            "vintage": "",
-            "region": "",
-            "country": "",
-            "grape_variety": "",
-            "other_details": f"AI structuring failed (Ollama error): {e}. Raw OCR text:\n{extracted_text}",
+            "wine_name": "", "producer": "", "vintage": "", "region": "",
+            "country": "", "grape_variety": "", "tasting_notes": "",
+            "other_details": f"OpenRouter API call failed: {e}",
             "confidence": 0.0,
-            "raw_response": extracted_text
+            "raw_response": str(e)
         }
 
-    # Robust JSON extraction
+    # Parse JSON
     start = raw.find('{')
     end = raw.rfind('}')
-    if start != -1 and end != -1:
-        json_str = raw[start:end+1]
-    else:
-        json_str = raw
+    json_str = raw[start:end+1] if start != -1 and end != -1 else raw
 
     try:
         parsed = json.loads(json_str)
     except json.JSONDecodeError:
         return {
-            "wine_name": "",
-            "producer": "",
-            "vintage": "",
-            "region": "",
-            "country": "",
-            "grape_variety": "",
-            "other_details": f"Failed to parse JSON. Raw AI output:\n{raw}",
+            "wine_name": "", "producer": "", "vintage": "", "region": "",
+            "country": "", "grape_variety": "", "tasting_notes": "",
+            "other_details": f"Failed to parse JSON. Raw output:\n{raw}",
             "confidence": 0.0,
             "raw_response": raw
         }
@@ -120,6 +124,7 @@ def analyze_wine_label(image_path):
         "region": str(parsed.get("region", "")),
         "country": str(parsed.get("country", "")),
         "grape_variety": str(parsed.get("grape_variety", "")),
+        "tasting_notes": str(parsed.get("tasting_notes", "")),
         "other_details": str(parsed.get("other_details", "")),
         "confidence": float(parsed.get("confidence", 0.0)),
         "raw_response": raw
