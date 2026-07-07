@@ -67,9 +67,9 @@ _Previously, the prototype used Tesseract OCR + a local Llama 3.2 3B text model 
 
 **Recognition Approach**
 
-- **Image Upload** - The user captures or uploads a photo of a wine label.
-- **Direct Vision Analysis** - The image is sent (as base64) to GLM‑4.6V through OpenRouter.
-- **Structured Extraction** - The model is prompted to extract:
+- **1. Image Upload** - The user captures or uploads a photo of a wine label.
+- **2. Direct Vision Analysis** - The image is sent (as base64) to GLM‑4.6V through OpenRouter.
+- **3. Structured Extraction** - The model is prompted to extract:
   - Wine name
   - Producer / winery
   - Vintage
@@ -77,9 +77,9 @@ _Previously, the prototype used Tesseract OCR + a local Llama 3.2 3B text model 
   - Grape variety
   - **AI‑generated tasting notes** (colour, aromas, palate, finish)
   - Confidence score
-- **Confidence & Fallback** - The model self‑rates its confidence (0-1). Low‑confidence entries show a warning on the edit page, and the user can manually correct any field.
-- **Journal Entry Creation** - A new dated entry is saved to the SQLite database, and the user is redirected to an edit form to review or adjust the results.
-- **User Correction** - All fields (including tasting notes) are editable.The user can also add a personal remark to capture their own thoughts or memories about the wine and their changes are saved permanently.
+- **4. Confidence & Fallback** - The model self‑rates its confidence (0-1). Low‑confidence entries show a warning on the edit page, and the user can manually correct any field.
+- **5. Journal Entry Creation** - A new dated entry is saved to the SQLite database, and the user is redirected to an edit form to review or adjust the results.
+- **6. User Correction** - All fields (including tasting notes) are editable.The user can also add a personal remark to capture their own thoughts or memories about the wine and their changes are saved permanently.
 
 **What Works Well**
 
@@ -88,6 +88,7 @@ _Previously, the prototype used Tesseract OCR + a local Llama 3.2 3B text model 
 - **AI‑generated tasting notes** - the model suggests a professional tasting note based on the recognised wine, clearly labelled as "AI‑generated".
 - **Personal remarks** - a separate text field lets users write their own notes, memories, or ratings.
 - **Advanced filtering** – the journal list can be filtered by wine name, producer, vintage, region, country, grape variety, tasting notes, other details, and personal remark.
+- **Persistent filters** – after applying a search or filter, clicking into an entry and then using the “Back to Journal” button returns you to the same filtered list, not the full journal, so you never lose your place.
 - **Persistent bulk delete** – when entering bulk‑delete mode, selected checkboxes survive navigation to other pages (e.g., viewing, editing or delete an entry) until explicitly cancelled, making multi‑entry deletion effortless.
 - **Loading feedback** - an overlay appears during recognition (“Recognizing your wine…”) so users know the app is working.
 - **Clean user interface** - orange‑themed, mobile‑responsive design with hover effects on the journal list, search, advanced filters, and bulk delete.

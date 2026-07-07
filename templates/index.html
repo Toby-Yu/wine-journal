@@ -11,7 +11,7 @@
             <button class="btn btn-primary btn-lg text-nowrap" type="submit">🔍 Search</button>
             <button type="button" class="btn btn-primary btn-lg text-nowrap" id="toggleFiltersBtn">⚙️ Filters</button>
             <a href="/" class="btn btn-outline-secondary btn-lg text-nowrap
-               {% if not (search or wine_name or producer or vintage or region or country or grape_variety or other_details or tasting_notes or personal_remark) %}invisible{% endif %}">
+               {% if not filter_query_str %}invisible{% endif %}">
                ↩ Back to Full List
             </a>
         </div>
@@ -103,16 +103,17 @@
 <h2>Journal List</h2>
 {% if entries %}
 <form id="bulkDeleteForm" action="/entry/delete_multiple" method="post" onsubmit="return confirm('Delete selected entries?');">
+    <input type="hidden" name="back_filter" value="{{ filter_query_str }}">
     <div class="list-group mb-3" id="journalListContainer">
         {% for entry in entries %}
         <div class="list-group-item d-flex justify-content-between align-items-center position-relative journal-entry-hover"
              data-entry-id="{{ entry.id }}">
             <div class="d-flex align-items-center flex-grow-1">
-                <!-- Checkbox – hidden by default, shown in bulk mode -->
                 <input class="form-check-input me-3 entry-checkbox d-none" type="checkbox" name="entry_ids" value="{{ entry.id }}"
                        style="transform: scale(1.2); z-index: 3;"
                        data-entry-id="{{ entry.id }}">
-                <a href="/entry/{{ entry.id }}" class="text-decoration-none text-dark flex-grow-1 journal-link"
+                <a href="/entry/{{ entry.id }}{% if filter_query_str %}?filter={{ filter_query_str }}{% endif %}"
+                   class="text-decoration-none text-dark flex-grow-1 journal-link"
                    style="position: relative; z-index: 2;">
                     <strong>{{ entry.wine_name or 'Unnamed Wine' }}</strong>
                     <small class="text-muted d-block">{{ entry.producer }}{% if entry.vintage %} – {{ entry.vintage }}{% endif %}</small>
@@ -126,13 +127,11 @@
             <div class="d-flex align-items-center">
                 <span class="badge bg-primary rounded-pill me-3">{{ entry.date.strftime('%Y-%m-%d') }}</span>
             </div>
-            <!-- Stretched link for whole‑row navigation (disabled in bulk mode) -->
-            <a href="/entry/{{ entry.id }}" class="stretched-link journal-stretched-link" style="z-index: 1;"></a>
+            <a href="/entry/{{ entry.id }}{% if filter_query_str %}?filter={{ filter_query_str }}{% endif %}" class="stretched-link journal-stretched-link" style="z-index: 1;"></a>
         </div>
         {% endfor %}
     </div>
 
-    <!-- Bulk actions bar -->
     <div id="bulkActions" class="d-flex justify-content-between align-items-center mb-4 d-none">
         <div>
             <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllBtn">Select All</button>
@@ -177,22 +176,34 @@
 </style>
 
 <script>
-    // Helper functions for localStorage persistence
-    function getStoredBulkMode() {
-        return localStorage.getItem('bulkMode') === 'true';
-    }
-    function setStoredBulkMode(value) {
-        localStorage.setItem('bulkMode', value);
-    }
-    function getStoredSelectedIds() {
-        const raw = localStorage.getItem('selectedEntries');
-        return raw ? JSON.parse(raw) : [];
-    }
-    function setStoredSelectedIds(ids) {
-        localStorage.setItem('selectedEntries', JSON.stringify(ids));
-    }
+    const photoInput = document.getElementById('photoInput');
+    const submitBtn = document.getElementById('submitBtn');
+    const fileName = document.getElementById('fileName');
+    const uploadForm = document.getElementById('uploadForm');
+    const loadingOverlay = document.getElementById('loadingOverlay');
 
-    // Apply bulk mode UI based on stored state
+    photoInput.addEventListener('change', function() {
+        if (photoInput.files.length > 0) {
+            fileName.textContent = 'Selected: ' + photoInput.files[0].name;
+            submitBtn.style.display = 'inline-block';
+        } else {
+            fileName.textContent = '';
+            submitBtn.style.display = 'none';
+        }
+    });
+
+    uploadForm.addEventListener('submit', function(e) {
+        loadingOverlay.style.display = 'block';
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⏳ Processing...';
+    });
+
+    // Bulk delete logic with localStorage persistence
+    function getStoredBulkMode() { return localStorage.getItem('bulkMode') === 'true'; }
+    function setStoredBulkMode(value) { localStorage.setItem('bulkMode', value); }
+    function getStoredSelectedIds() { const raw = localStorage.getItem('selectedEntries'); return raw ? JSON.parse(raw) : []; }
+    function setStoredSelectedIds(ids) { localStorage.setItem('selectedEntries', JSON.stringify(ids)); }
+
     function applyStoredBulkState() {
         const bulkMode = getStoredBulkMode();
         const selectedIds = getStoredSelectedIds();
@@ -205,34 +216,24 @@
         const startBulkBtn = document.getElementById('startBulkDeleteBtn');
 
         if (bulkMode) {
-            // Show checkboxes
             checkboxes.forEach(cb => {
                 cb.classList.remove('d-none');
                 cb.checked = selectedIds.includes(cb.getAttribute('data-entry-id'));
             });
-            // Disable stretched links
             stretchedLinks.forEach(link => link.classList.add('disabled-link'));
-            // Show bulk actions bar, hide start button
             bulkActions.classList.remove('d-none');
             startBulkBtn.classList.add('d-none');
         } else {
-            // Hide checkboxes, uncheck them
-            checkboxes.forEach(cb => {
-                cb.classList.add('d-none');
-                cb.checked = false;
-            });
-            // Enable stretched links
+            checkboxes.forEach(cb => { cb.classList.add('d-none'); cb.checked = false; });
             stretchedLinks.forEach(link => link.classList.remove('disabled-link'));
-            // Hide bulk actions bar, show start button
             bulkActions.classList.add('d-none');
             startBulkBtn.classList.remove('d-none');
-            // Clear selections
             localStorage.removeItem('selectedEntries');
         }
     }
 
-    // Update localStorage when a checkbox is toggled
     function handleCheckboxChange(e) {
+        if (!e.target.classList.contains('entry-checkbox')) return;
         const cb = e.target;
         const entryId = cb.getAttribute('data-entry-id');
         let selectedIds = getStoredSelectedIds();
@@ -244,90 +245,45 @@
         setStoredSelectedIds(selectedIds);
     }
 
-    // Select/Deselect all
-    function selectAll() {
-        const container = document.getElementById('journalListContainer');
-        if (!container) return;
-        const checkboxes = container.querySelectorAll('.entry-checkbox');
-        const ids = [];
-        checkboxes.forEach(cb => {
-            cb.checked = true;
-            ids.push(cb.getAttribute('data-entry-id'));
-        });
-        setStoredSelectedIds(ids);
-    }
-    function deselectAll() {
-        const container = document.getElementById('journalListContainer');
-        if (!container) return;
-        const checkboxes = container.querySelectorAll('.entry-checkbox');
-        checkboxes.forEach(cb => { cb.checked = false; });
-        setStoredSelectedIds([]);
-    }
-
-    // --- Page initialization ---
     document.addEventListener('DOMContentLoaded', function() {
         applyStoredBulkState();
 
-        // Attach change listeners to all checkboxes
         const container = document.getElementById('journalListContainer');
         if (container) {
-            container.addEventListener('change', function(e) {
-                if (e.target.classList.contains('entry-checkbox')) {
-                    handleCheckboxChange(e);
-                }
-            });
+            container.addEventListener('change', handleCheckboxChange);
         }
 
-        // Start bulk delete
         document.getElementById('startBulkDeleteBtn')?.addEventListener('click', function() {
             setStoredBulkMode(true);
             setStoredSelectedIds([]);
             applyStoredBulkState();
         });
 
-        // Cancel bulk delete
         document.getElementById('cancelBulkBtn')?.addEventListener('click', function() {
             setStoredBulkMode(false);
             localStorage.removeItem('selectedEntries');
             applyStoredBulkState();
         });
 
-        // Select / Deselect all buttons
-        document.getElementById('selectAllBtn')?.addEventListener('click', selectAll);
-        document.getElementById('deselectAllBtn')?.addEventListener('click', deselectAll);
+        document.getElementById('selectAllBtn')?.addEventListener('click', function() {
+            const checkboxes = container.querySelectorAll('.entry-checkbox');
+            const ids = [];
+            checkboxes.forEach(cb => { cb.checked = true; ids.push(cb.getAttribute('data-entry-id')); });
+            setStoredSelectedIds(ids);
+        });
 
-        // When the bulk delete form is submitted, clear storage (entries will be deleted)
+        document.getElementById('deselectAllBtn')?.addEventListener('click', function() {
+            const checkboxes = container.querySelectorAll('.entry-checkbox');
+            checkboxes.forEach(cb => { cb.checked = false; });
+            setStoredSelectedIds([]);
+        });
+
         document.getElementById('bulkDeleteForm')?.addEventListener('submit', function() {
-            // Clear bulk mode after deletion – page will reload anyway
             localStorage.removeItem('bulkMode');
             localStorage.removeItem('selectedEntries');
         });
     });
 
-    // --- Upload / Loading overlay logic (unchanged) ---
-    const photoInput = document.getElementById('photoInput');
-    const submitBtn = document.getElementById('submitBtn');
-    const fileName = document.getElementById('fileName');
-    const uploadForm = document.getElementById('uploadForm');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-
-    photoInput?.addEventListener('change', function() {
-        if (photoInput.files.length > 0) {
-            fileName.textContent = 'Selected: ' + photoInput.files[0].name;
-            submitBtn.style.display = 'inline-block';
-        } else {
-            fileName.textContent = '';
-            submitBtn.style.display = 'none';
-        }
-    });
-
-    uploadForm?.addEventListener('submit', function(e) {
-        loadingOverlay.style.display = 'block';
-        submitBtn.disabled = true;
-        submitBtn.textContent = '⏳ Processing...';
-    });
-
-    // Toggle filters
     const toggleBtn = document.getElementById('toggleFiltersBtn');
     const filtersDiv = document.getElementById('advancedFilters');
     if (toggleBtn) {

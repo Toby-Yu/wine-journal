@@ -18,9 +18,7 @@
                     <span class="badge bg-secondary ms-1">🤖 AI‑generated</span><br>
                     {{ entry.tasting_notes or '–' }}
                 </p>
-                <!-- NEW: Personal Remark -->
                 <p class="card-text"><strong>📝 Personal Remark:</strong> {{ entry.personal_remark or '–' }}</p>
-                <!-- END NEW -->
                 <p class="card-text"><strong>Other Details:</strong> {{ entry.other_details or '–' }}</p>
                 <p class="card-text">
                     <small class="text-muted">
@@ -30,9 +28,9 @@
                 </p>
                 
                 <div class="mt-4 d-flex gap-2">
-                    <a href="/entry/{{ entry.id }}/edit" class="btn btn-primary">✏️ Edit</a>
-                    <a href="/" class="btn btn-outline-secondary">← Back to Journal</a>
-                    <form action="/entry/{{ entry.id }}/delete" method="post" onsubmit="return confirm('Delete this entry?');" class="ms-auto">
+                    <a href="/entry/{{ entry.id }}/edit{% if back_filter %}?filter={{ back_filter }}{% endif %}" class="btn btn-primary">✏️ Edit</a>
+                    <a href="/{% if back_filter %}?{{ back_filter }}{% endif %}" class="btn btn-outline-secondary">← Back to Journal</a>
+                    <form action="/entry/{{ entry.id }}/delete{% if back_filter %}?filter={{ back_filter }}{% endif %}" method="post" onsubmit="return confirm('Delete this entry?');" class="ms-auto">
                         <button type="submit" class="btn btn-outline-danger">🗑️ Delete</button>
                     </form>
                 </div>

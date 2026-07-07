@@ -1,6 +1,7 @@
 import os
 import uuid
 from datetime import date
+from urllib.parse import urlencode
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -35,7 +36,6 @@ def index():
     grape_variety = request.args.get('grape_variety', '').strip()
     other_details = request.args.get('other_details', '').strip()
     tasting_notes = request.args.get('tasting_notes', '').strip()
-    # New: personal remark filter
     personal_remark = request.args.get('personal_remark', '').strip()
 
     query = JournalEntry.query
@@ -73,13 +73,30 @@ def index():
         query = query.filter(JournalEntry.personal_remark.ilike(f'%{personal_remark}%'))
 
     entries = query.order_by(JournalEntry.id.desc()).all()
+
+    # Build a plain URL‑encoded filter string for the current filters
+    filter_params = {}
+    if search: filter_params['q'] = search
+    if wine_name: filter_params['wine_name'] = wine_name
+    if producer: filter_params['producer'] = producer
+    if vintage: filter_params['vintage'] = vintage
+    if region: filter_params['region'] = region
+    if country: filter_params['country'] = country
+    if grape_variety: filter_params['grape_variety'] = grape_variety
+    if other_details: filter_params['other_details'] = other_details
+    if tasting_notes: filter_params['tasting_notes'] = tasting_notes
+    if personal_remark: filter_params['personal_remark'] = personal_remark
+
+    filter_query_str = urlencode(filter_params) if filter_params else ''
+
     return render_template('index.html', entries=entries, search=search,
                            wine_name=wine_name, producer=producer,
                            vintage=vintage, region=region, country=country,
                            grape_variety=grape_variety,
                            other_details=other_details,
                            tasting_notes=tasting_notes,
-                           personal_remark=personal_remark)
+                           personal_remark=personal_remark,
+                           filter_query_str=filter_query_str)
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -119,7 +136,6 @@ def upload():
             entry.other_details = result.get('other_details', '')
             entry.confidence = result.get('confidence', 0.0)
             entry.raw_ai_response = result.get('raw_response', '')
-            # personal_remark stays empty until the user adds one
             entry.personal_remark = ''
             db.session.commit()
         except Exception as e:
@@ -142,36 +158,50 @@ def edit_entry(entry_id):
         entry.grape_variety = request.form.get('grape_variety', '')
         entry.tasting_notes = request.form.get('tasting_notes', '')
         entry.other_details = request.form.get('other_details', '')
-        # New: save personal remark
         entry.personal_remark = request.form.get('personal_remark', '')
         db.session.commit()
         flash('Entry saved!', 'success')
+        # Preserve filter state from hidden back_filter input
+        back_filter = request.form.get('back_filter', '')
+        if back_filter:
+            return redirect(url_for('view_entry', entry_id=entry.id, filter=back_filter))
         return redirect(url_for('view_entry', entry_id=entry.id))
-    return render_template('edit_entry.html', entry=entry)
+    # GET request: take filter from query param
+    back_filter = request.args.get('filter', '')
+    return render_template('edit_entry.html', entry=entry, back_filter=back_filter)
 
 @app.route('/entry/<int:entry_id>')
 def view_entry(entry_id):
     entry = JournalEntry.query.get_or_404(entry_id)
-    return render_template('view_entry.html', entry=entry)
+    back_filter = request.args.get('filter', '')
+    return render_template('view_entry.html', entry=entry, back_filter=back_filter)
 
 @app.route('/entry/<int:entry_id>/delete', methods=['POST'])
 def delete_entry(entry_id):
     entry = JournalEntry.query.get_or_404(entry_id)
+    back_filter = request.args.get('filter', '')
     db.session.delete(entry)
     db.session.commit()
     flash('Entry deleted.', 'info')
+    if back_filter:
+        return redirect(url_for('index') + '?' + back_filter)
     return redirect(url_for('index'))
 
 @app.route('/entry/delete_multiple', methods=['POST'])
 def delete_multiple_entries():
     entry_ids = request.form.getlist('entry_ids')
+    back_filter = request.form.get('back_filter', '')
     if not entry_ids:
         flash('No entries selected.', 'warning')
+        if back_filter:
+            return redirect(url_for('index') + '?' + back_filter)
         return redirect(url_for('index'))
     ids_to_delete = [int(eid) for eid in entry_ids]
     JournalEntry.query.filter(JournalEntry.id.in_(ids_to_delete)).delete(synchronize_session='fetch')
     db.session.commit()
     flash(f'{len(ids_to_delete)} entry(ies) deleted.', 'success')
+    if back_filter:
+        return redirect(url_for('index') + '?' + back_filter)
     return redirect(url_for('index'))
 
 if __name__ == '__main__':

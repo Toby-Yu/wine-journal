@@ -13,6 +13,8 @@
 {% endif %}
 
 <form method="post">
+    <input type="hidden" name="back_filter" value="{{ back_filter }}">
+    
     <div class="row mb-3">
         <div class="col-md-6">
             <img src="{{ url_for('static', filename=entry.image_path) }}" class="img-fluid rounded" alt="Wine label">
@@ -52,17 +54,17 @@
                     placeholder="AI will suggest a tasting note – you can edit it">{{ entry.tasting_notes or '' }}</textarea>
                 <small class="text-muted">This note was automatically suggested by the AI. Feel free to adjust it to match your own impression.</small>
             </div>
-            <!-- NEW: Personal Remark -->
+            <!-- Personal Remark -->
             <div class="mb-3">
                 <label class="form-label">📝 Personal Remark</label>
                 <textarea name="personal_remark" class="form-control" rows="2"
                     placeholder="Add your own thoughts or memories about this wine...">{{ entry.personal_remark or '' }}</textarea>
             </div>
-            <!-- END NEW -->
             <div class="mb-3">
                 <label class="form-label">Other Details</label>
                 <textarea name="other_details" class="form-control" rows="3">{{ entry.other_details or '' }}</textarea>
             </div>
+            <!-- Single Save button only (no Back link) -->
             <button type="submit" class="btn btn-primary w-100">💾 Save Entry</button>
         </div>
     </div>
