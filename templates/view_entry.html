@@ -13,13 +13,14 @@
                 <p class="card-text"><strong>Region:</strong> {{ entry.region or '–' }}</p>
                 <p class="card-text"><strong>Country:</strong> {{ entry.country or '–' }}</p>
                 <p class="card-text"><strong>Grape:</strong> {{ entry.grape_variety or '–' }}</p>
-                <!-- Tasting Notes with AI badge -->
                 <p class="card-text">
                     <strong>🍷 Tasting Notes:</strong>
                     <span class="badge bg-secondary ms-1">🤖 AI‑generated</span><br>
                     {{ entry.tasting_notes or '–' }}
                 </p>
-                <!-- End Tasting Notes -->
+                <!-- NEW: Personal Remark -->
+                <p class="card-text"><strong>📝 Personal Remark:</strong> {{ entry.personal_remark or '–' }}</p>
+                <!-- END NEW -->
                 <p class="card-text"><strong>Other Details:</strong> {{ entry.other_details or '–' }}</p>
                 <p class="card-text">
                     <small class="text-muted">
@@ -31,7 +32,6 @@
                 <div class="mt-4 d-flex gap-2">
                     <a href="/entry/{{ entry.id }}/edit" class="btn btn-primary">✏️ Edit</a>
                     <a href="/" class="btn btn-outline-secondary">← Back to Journal</a>
-                    <!-- Delete button (with confirmation) -->
                     <form action="/entry/{{ entry.id }}/delete" method="post" onsubmit="return confirm('Delete this entry?');" class="ms-auto">
                         <button type="submit" class="btn btn-outline-danger">🗑️ Delete</button>
                     </form>

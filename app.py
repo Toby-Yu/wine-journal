@@ -33,11 +33,13 @@ def index():
     region = request.args.get('region', '').strip()
     country = request.args.get('country', '').strip()
     grape_variety = request.args.get('grape_variety', '').strip()
-    notes = request.args.get('notes', '').strip()
+    other_details = request.args.get('other_details', '').strip()
+    tasting_notes = request.args.get('tasting_notes', '').strip()
+    # New: personal remark filter
+    personal_remark = request.args.get('personal_remark', '').strip()
 
     query = JournalEntry.query
 
-    # Main keyword search
     if search:
         name_or_producer = or_(
             JournalEntry.wine_name.ilike(f'%{search}%'),
@@ -51,7 +53,6 @@ def index():
             )
         query = query.filter(name_or_producer)
 
-    # Advanced filters
     if wine_name:
         query = query.filter(JournalEntry.wine_name.ilike(f'%{wine_name}%'))
     if producer:
@@ -64,14 +65,21 @@ def index():
         query = query.filter(JournalEntry.country.ilike(f'%{country}%'))
     if grape_variety:
         query = query.filter(JournalEntry.grape_variety.ilike(f'%{grape_variety}%'))
-    if notes:
-        query = query.filter(JournalEntry.other_details.ilike(f'%{notes}%'))
+    if other_details:
+        query = query.filter(JournalEntry.other_details.ilike(f'%{other_details}%'))
+    if tasting_notes:
+        query = query.filter(JournalEntry.tasting_notes.ilike(f'%{tasting_notes}%'))
+    if personal_remark:
+        query = query.filter(JournalEntry.personal_remark.ilike(f'%{personal_remark}%'))
 
     entries = query.order_by(JournalEntry.id.desc()).all()
     return render_template('index.html', entries=entries, search=search,
                            wine_name=wine_name, producer=producer,
                            vintage=vintage, region=region, country=country,
-                           grape_variety=grape_variety, notes=notes)
+                           grape_variety=grape_variety,
+                           other_details=other_details,
+                           tasting_notes=tasting_notes,
+                           personal_remark=personal_remark)
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -107,10 +115,12 @@ def upload():
             entry.region = result.get('region', '')
             entry.country = result.get('country', '')
             entry.grape_variety = result.get('grape_variety', '')
-            entry.tasting_notes = result.get('tasting_notes', '')   # new
+            entry.tasting_notes = result.get('tasting_notes', '')
             entry.other_details = result.get('other_details', '')
             entry.confidence = result.get('confidence', 0.0)
             entry.raw_ai_response = result.get('raw_response', '')
+            # personal_remark stays empty until the user adds one
+            entry.personal_remark = ''
             db.session.commit()
         except Exception as e:
             flash(f'AI analysis failed: {str(e)}. Please fill manually.', 'warning')
@@ -130,8 +140,10 @@ def edit_entry(entry_id):
         entry.region = request.form.get('region', '')
         entry.country = request.form.get('country', '')
         entry.grape_variety = request.form.get('grape_variety', '')
-        entry.tasting_notes = request.form.get('tasting_notes', '')  # new
+        entry.tasting_notes = request.form.get('tasting_notes', '')
         entry.other_details = request.form.get('other_details', '')
+        # New: save personal remark
+        entry.personal_remark = request.form.get('personal_remark', '')
         db.session.commit()
         flash('Entry saved!', 'success')
         return redirect(url_for('view_entry', entry_id=entry.id))
