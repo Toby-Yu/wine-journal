@@ -88,6 +88,8 @@ _Previously, the prototype used Tesseract OCR + a local Llama 3.2 3B text model 
 - **AI‑generated tasting notes** - the model suggests a professional tasting note based on the recognised wine, clearly labelled as "AI‑generated".
 - **Personal remarks** - a separate text field lets users write their own notes, memories, or ratings.
 - **Advanced filtering** – the journal list can be filtered by wine name, producer, vintage, region, country, grape variety, tasting notes, other details, and personal remark.
+- **Persistent bulk delete** – when entering bulk‑delete mode, selected checkboxes survive navigation to other pages (e.g., viewing, editing or delete an entry) until explicitly cancelled, making multi‑entry deletion effortless.
+- **Loading feedback** - an overlay appears during recognition (“Recognizing your wine…”) so users know the app is working.
 - **Clean user interface** - orange‑themed, mobile‑responsive design with hover effects on the journal list, search, advanced filters, and bulk delete.
 - **Graceful fallback** - if the API call fails, the entry is still created with raw error details, and the user can fill the fields manually.
 
@@ -102,7 +104,7 @@ _Previously, the prototype used Tesseract OCR + a local Llama 3.2 3B text model 
 **What I Would Improve with More Time**
 
 - **Offline fallback** - reintegrate a lightweight local vision model (e.g., LLaVA‑Phi3) as a backup when the API is unavailable.
-- **better UX** - allowing user to move around the filter wine journal or the full list or adding compare function with two wine journal.
+- **better UX** - aallow users to compare two wine entries side‑by‑side or easily navigate between filtered views.
 - **Integrate search API with GLM4.6V** - enhance tasting note quality by fetching real wine reviews from the web.
 - **Better error handling** - detect if very unclear label or image is uploaded, prompt the user to retake the photo.
 - **Wine database matching** - cross‑reference recognised fields with a public wine database (e.g., [Wine.com](https://wine.com/), Vivino) to boost accuracy.
