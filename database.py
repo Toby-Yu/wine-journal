@@ -13,6 +13,7 @@ class JournalEntry(db.Model):
     region = db.Column(db.String(255))
     country = db.Column(db.String(255))
     grape_variety = db.Column(db.String(255))
+    tasting_notes = db.Column(db.Text)      # new field
     other_details = db.Column(db.Text)
     confidence = db.Column(db.Float, default=0.0)
     raw_ai_response = db.Column(db.Text)

@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# OpenRouter configuration
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 if not OPENROUTER_API_KEY:
     raise RuntimeError("OPENROUTER_API_KEY not set in .env")
@@ -18,7 +17,7 @@ client = OpenAI(
     api_key=OPENROUTER_API_KEY,
     base_url=OPENROUTER_BASE_URL,
     default_headers={
-        "HTTP-Referer": "http://localhost:5000",   # optional, for OpenRouter rankings
+        "HTTP-Referer": "http://localhost:5000",
         "X-Title": "WineJournalDemo"
     }
 )
@@ -28,22 +27,23 @@ def encode_image(image_path: str) -> str:
         return base64.b64encode(f.read()).decode("utf-8")
 
 def analyze_wine_label(image_path: str) -> dict:
-    """Send a wine label photo to GLM‑4.6V via OpenRouter. Returns structured fields + confidence."""
+    """Send a wine label photo to GLM‑4.6V. Returns structured fields + tasting notes + confidence."""
     try:
         b64_img = encode_image(image_path)
     except Exception as e:
         return {
             "wine_name": "", "producer": "", "vintage": "", "region": "",
-            "country": "", "grape_variety": "",
+            "country": "", "grape_variety": "", "tasting_notes": "",
             "other_details": f"Image encoding failed: {e}",
             "confidence": 0.0, "raw_response": ""
         }
 
     system_prompt = (
-        "You are a sommelier AI that analyses wine label photos. "
-        "Extract visible text and use your knowledge of wine regions, producers, "
-        "and vintages to fill in any missing fields. If the image is blurry, "
-        "angled, or partially cropped, infer the most likely wine based on recognisable parts. "
+        "You are a master sommelier AI that analyses wine label photos. "
+        "First, extract all visible text from the label (wine name, producer, vintage, region, etc.). "
+        "Then, use your deep knowledge of world wines to fill in any missing fields and to generate an accurate tasting note. "
+        "For the tasting note, infer the typical flavour profile (colour, aromas, body, tannins, finish) based on the wine, its region, and grape variety. "
+        "If the label is blurry, angled, or partially cropped, infer the most likely wine from recognisable fragments. "
         "Always output a valid JSON object – no code, no explanation."
     )
 
@@ -56,6 +56,7 @@ def analyze_wine_label(image_path: str) -> dict:
         '  "region": "string",\n'
         '  "country": "string",\n'
         '  "grape_variety": "string",\n'
+        '  "tasting_notes": "string (a brief, professional tasting note: colour, aromas, palate, finish)",\n'
         '  "other_details": "string (any extra useful info)",\n'
         '  "confidence": 0.0\n'
         "}\n\n"
@@ -64,6 +65,8 @@ def analyze_wine_label(image_path: str) -> dict:
         "- Blurry/partial but identifiable: 0.6 – 0.8\n"
         "- Guessing from fragments: 0.3 – 0.5\n"
         "- No label: 0.0\n\n"
+        "Important: The tasting note should be specific to the wine you identified. "
+        "Use your knowledge of typical profiles for that grape/region/vintage. "
         "Now, output only the JSON."
     )
 
@@ -92,7 +95,7 @@ def analyze_wine_label(image_path: str) -> dict:
     except Exception as e:
         return {
             "wine_name": "", "producer": "", "vintage": "", "region": "",
-            "country": "", "grape_variety": "",
+            "country": "", "grape_variety": "", "tasting_notes": "",
             "other_details": f"OpenRouter API call failed: {e}",
             "confidence": 0.0,
             "raw_response": str(e)
@@ -108,7 +111,7 @@ def analyze_wine_label(image_path: str) -> dict:
     except json.JSONDecodeError:
         return {
             "wine_name": "", "producer": "", "vintage": "", "region": "",
-            "country": "", "grape_variety": "",
+            "country": "", "grape_variety": "", "tasting_notes": "",
             "other_details": f"Failed to parse JSON. Raw output:\n{raw}",
             "confidence": 0.0,
             "raw_response": raw
@@ -121,6 +124,7 @@ def analyze_wine_label(image_path: str) -> dict:
         "region": str(parsed.get("region", "")),
         "country": str(parsed.get("country", "")),
         "grape_variety": str(parsed.get("grape_variety", "")),
+        "tasting_notes": str(parsed.get("tasting_notes", "")),
         "other_details": str(parsed.get("other_details", "")),
         "confidence": float(parsed.get("confidence", 0.0)),
         "raw_response": raw

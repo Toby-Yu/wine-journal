@@ -39,12 +39,10 @@ def index():
 
     # Main keyword search
     if search:
-        # Case-insensitive partial match on name or producer
         name_or_producer = or_(
             JournalEntry.wine_name.ilike(f'%{search}%'),
             JournalEntry.producer.ilike(f'%{search}%')
         )
-        # Also match unnamed wines if search contains "unnamed"
         if "unnamed" in search.lower():
             name_or_producer = or_(
                 name_or_producer,
@@ -53,7 +51,7 @@ def index():
             )
         query = query.filter(name_or_producer)
 
-    # Advanced filters (AND logic)
+    # Advanced filters
     if wine_name:
         query = query.filter(JournalEntry.wine_name.ilike(f'%{wine_name}%'))
     if producer:
@@ -109,6 +107,7 @@ def upload():
             entry.region = result.get('region', '')
             entry.country = result.get('country', '')
             entry.grape_variety = result.get('grape_variety', '')
+            entry.tasting_notes = result.get('tasting_notes', '')   # new
             entry.other_details = result.get('other_details', '')
             entry.confidence = result.get('confidence', 0.0)
             entry.raw_ai_response = result.get('raw_response', '')
@@ -131,6 +130,7 @@ def edit_entry(entry_id):
         entry.region = request.form.get('region', '')
         entry.country = request.form.get('country', '')
         entry.grape_variety = request.form.get('grape_variety', '')
+        entry.tasting_notes = request.form.get('tasting_notes', '')  # new
         entry.other_details = request.form.get('other_details', '')
         db.session.commit()
         flash('Entry saved!', 'success')
